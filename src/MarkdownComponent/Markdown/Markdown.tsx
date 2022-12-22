@@ -1,34 +1,47 @@
 import 'github-markdown-css'
 import React, { FunctionComponent } from 'react'
 import ReactMarkdown from "react-markdown"
-import MarkdownCodeBlock from "./MarkdownCodeBlock"
+import remarkGfm from 'remark-gfm'
+import {Prism as SyntaxHighlighter} from 'react-syntax-highlighter'
+import {darcula as highlighterStyle} from 'react-syntax-highlighter/dist/esm/styles/prism'
+import remarkMathPlugin from 'remark-math'
+import rehypeKatexPlugin from 'rehype-katex'
+import "katex/dist/katex.min.css"
+import rehypeRaw from "rehype-raw";
 
 export interface MarkdownProps {
     source: string
-    substitute?: { [key: string]: string | undefined | null }
-    linkTarget?: '_blank' | ReactMarkdown.LinkTargetResolver
-    renderers?: ReactMarkdown.Renderers
 }
 
-const Markdown: FunctionComponent<MarkdownProps> = ({ source, substitute, linkTarget, renderers }) => {
-    const source2 = substitute ? doSubstitute(source, substitute) : source
+const Markdown: FunctionComponent<MarkdownProps> = ({ source }) => {
     return (
         <div className='markdown-body'>
             <ReactMarkdown
-                source={source2}
-                renderers={{ code: MarkdownCodeBlock, ...renderers }}
-                linkTarget={linkTarget}
+                children={source}
+                remarkPlugins={[remarkGfm, remarkMathPlugin]}
+                rehypePlugins={[rehypeRaw, rehypeKatexPlugin]}
+                components={{
+                    code: ({node, inline, className, children, ...props}) => {
+                      const match = /language-(\w+)/.exec(className || '')
+                      return !inline && match ? (
+                        <SyntaxHighlighter
+                          children={String(children).replace(/\n$/, '')}
+                          style={highlighterStyle as any}
+                          language={match[1]}
+                          PreTag="div"
+                          {...props}
+                        />
+                      ) : (
+                        <code className={className} {...props}>
+                          {children}
+                        </code>
+                      )
+                    }
+                }}
+                linkTarget="_blank"
             />
         </div>
     );
-}
-
-const doSubstitute = (x: string, s: { [key: string]: string | undefined | null }) => {
-    let y = x
-    for (let k in s) {
-        y = y.split(`{${k}}`).join(s[k] || '')
-    }
-    return y
 }
 
 export default Markdown
